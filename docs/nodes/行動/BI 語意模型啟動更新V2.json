@@ -1,0 +1,90 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "WORKSPACE_ID"
+            },
+            {
+              "name": "DATASET_ID"
+            },
+            {
+              "name": "TOKEN"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        1472,
+        -32
+      ],
+      "id": "0d98ab6a-bc56-4050-a57a-b507af0e73e8",
+      "name": "When Executed by Another Workflow",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.powerbi.com/v1.0/myorg/groups/{{ $json.WORKSPACE_ID }}/datasets/{{ $json.DATASET_ID }}/refreshes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1712,
+        -32
+      ],
+      "id": "297b57ba-3c78-49ee-bfd2-0192ef6d8cd3",
+      "name": "語意模型更新"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "語意模型更新",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "語意模型更新": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "WORKSPACE_ID": "aeaff101-043b-422f-92d4-fa1d440435a3",
+        "DATASET_ID": "6ea7a192-57f4-46fa-993e-ae73695e895c",
+        "TOKEN": "<REDACTED_EXPIRED_TOKEN>"
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "439a548d7f916f9ee21123d357255532b3bc1bada35d3ded2d5a1ae2810a83a9"
+  }
+}

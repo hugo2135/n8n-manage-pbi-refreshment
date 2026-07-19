@@ -1,0 +1,340 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=https://api.powerbi.com/v1.0/myorg/groups/{{ $('When Executed by Another Workflow').item.json.WORKSPACE_ID }}/dataflows/{{ $('When Executed by Another Workflow').item.json.DATASET_ID }}/transactions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        928,
+        -48
+      ],
+      "id": "db744d02-bbbb-4389-addf-7d3c7b9ac58b",
+      "name": "獲取資料流程狀態"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "WORKSPACE_ID"
+            },
+            {
+              "name": "DATASET_ID"
+            },
+            {
+              "name": "TOKEN"
+            },
+            {
+              "name": "WORKFLOW_START_AT"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        -48
+      ],
+      "id": "c2971143-1fac-4ff2-a3b2-7e328ca0d77b",
+      "name": "When Executed by Another Workflow",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "6EtmNElkvNIuAENm",
+          "mode": "list",
+          "cachedResultName": "Today BI update status V2",
+          "cachedResultUrl": "/projects/CBuXUjvxkcv6Hf1V/datatables/6EtmNElkvNIuAENm"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "WORKSPACE_ID",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.WORKSPACE_ID }}"
+            },
+            {
+              "keyName": "DATASET_ID",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.DATASET_ID }}"
+            },
+            {
+              "keyName": "TYPE",
+              "keyValue": "Dataflow"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "={{ $('取最新的更新歷史').item.json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "WORKSPACE_ID",
+              "displayName": "WORKSPACE_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "DATASET_ID",
+              "displayName": "DATASET_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "DATASET_NAME",
+              "displayName": "DATASET_NAME",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "TYPE",
+              "displayName": "TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "PRE_WORKFLOW_LIST",
+              "displayName": "PRE_WORKFLOW_LIST",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "RETRY_COUNT",
+              "displayName": "RETRY_COUNT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR_MESSAGE",
+              "displayName": "ERROR_MESSAGE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "dryRun": false
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1872,
+        -240
+      ],
+      "id": "405eb9c9-6fd1-4507-983f-9c78ef4c2783",
+      "name": "更新資料流狀態",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "value",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        -48
+      ],
+      "id": "2ee292ac-d895-4b28-9e4a-73619cafb64a",
+      "name": "分解歷史"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1872,
+        128
+      ],
+      "id": "c3696539-10fd-4dca-a22e-797de6fdf451",
+      "name": "更新未開始"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        -48
+      ],
+      "id": "47c08432-0bfc-4dc4-aed2-6f825355bd4c",
+      "name": "取最新的更新歷史"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fea79f42-4a74-4fca-8132-fc269cb3e4e5",
+              "leftValue": "={{ $json.startTime }}",
+              "rightValue": "={{ $('When Executed by Another Workflow').item.json.WORKFLOW_START_AT }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1648,
+        -48
+      ],
+      "id": "c5827c68-7810-4231-adda-c7fd4a66e3ef",
+      "name": "判斷是否為本次更新"
+    }
+  ],
+  "connections": {
+    "獲取資料流程狀態": {
+      "main": [
+        [
+          {
+            "node": "分解歷史",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "獲取資料流程狀態",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "更新資料流狀態": {
+      "main": [
+        []
+      ]
+    },
+    "分解歷史": {
+      "main": [
+        [
+          {
+            "node": "取最新的更新歷史",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "取最新的更新歷史": {
+      "main": [
+        [
+          {
+            "node": "判斷是否為本次更新",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "判斷是否為本次更新": {
+      "main": [
+        [
+          {
+            "node": "更新資料流狀態",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "更新未開始",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "WORKSPACE_ID": "5af7925b-4868-4af2-bd16-3b1d33957385",
+        "DATASET_ID": "48302d32-1008-4fbe-b90c-fd64a09d8423",
+        "TOKEN": "<REDACTED_EXPIRED_TOKEN>",
+        "WORKFLOW_START_AT": ""
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "439a548d7f916f9ee21123d357255532b3bc1bada35d3ded2d5a1ae2810a83a9"
+  }
+}

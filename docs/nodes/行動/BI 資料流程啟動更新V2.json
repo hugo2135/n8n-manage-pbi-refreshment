@@ -1,0 +1,85 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.powerbi.com/v1.0/myorg/groups/{{ $('When Executed by Another Workflow').item.json.WORKSPACE_ID }}/dataflows/{{ $('When Executed by Another Workflow').item.json.DATASET_ID }}/refreshes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "notifyOption",
+              "value": "MailOnFailure"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1712,
+        -32
+      ],
+      "id": "21946f79-5be8-40f3-a415-3089eb85aef1",
+      "name": "資料流程更新"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "WORKSPACE_ID"
+            },
+            {
+              "name": "DATASET_ID"
+            },
+            {
+              "name": "TOKEN"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        1472,
+        -32
+      ],
+      "id": "d8c35d80-1cd2-47e7-bc6d-36c4dae8f2b1",
+      "name": "When Executed by Another Workflow",
+      "alwaysOutputData": false
+    }
+  ],
+  "connections": {
+    "資料流程更新": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "資料流程更新",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "439a548d7f916f9ee21123d357255532b3bc1bada35d3ded2d5a1ae2810a83a9"
+  }
+}
