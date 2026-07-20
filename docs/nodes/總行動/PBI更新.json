@@ -2034,23 +2034,7 @@
       ]
     }
   },
-  "pinData": {
-    "Schedule Trigger": [
-      {
-        "timestamp": "2026-06-26T20:56:53.913+08:00",
-        "Readable date": "June 26th 2026, 8:56:53 pm",
-        "Readable time": "8:56:53 pm",
-        "Day of week": "Friday",
-        "Year": "2026",
-        "Month": "June",
-        "Day of month": "26",
-        "Hour": "20",
-        "Minute": "56",
-        "Second": "53",
-        "Timezone": "Asia/Taipei (UTC+08:00)"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "instanceId": "439a548d7f916f9ee21123d357255532b3bc1bada35d3ded2d5a1ae2810a83a9"
   }

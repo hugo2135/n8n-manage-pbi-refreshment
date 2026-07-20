@@ -75,15 +75,7 @@
       ]
     }
   },
-  "pinData": {
-    "When Executed by Another Workflow": [
-      {
-        "WORKSPACE_ID": "aeaff101-043b-422f-92d4-fa1d440435a3",
-        "DATASET_ID": "6ea7a192-57f4-46fa-993e-ae73695e895c",
-        "TOKEN": "<REDACTED_EXPIRED_TOKEN>"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "instanceId": "439a548d7f916f9ee21123d357255532b3bc1bada35d3ded2d5a1ae2810a83a9"
   }
