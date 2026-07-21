@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: powerbi_auto_postgres
+    container_name: n8n-manage-pbi-refreshment_postgres
     # 🟢 加入這行：強制覆寫原廠設定，解放連線數與記憶體快取
     command: postgres -c max_connections=200 -c shared_buffers=1GB -c work_mem=32MB
     restart: always
@@ -28,7 +28,7 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
-    container_name: powerbi_auto_n8n
+    container_name: n8n-manage-pbi-refreshment_n8n
     command: start
     restart: always
     environment:
@@ -40,8 +40,9 @@ services:
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
-      - WEBHOOK_URL=http://localhost:5678/
+      - WEBHOOK_URL=http://localhost:6001/
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - TENANT_ID=${TENANT_ID}
       - CLIENT_ID=${CLIENT_ID}
       - CLIENT_SECRET=${CLIENT_SECRET}
       - DINGTALK_BOT=${DINGTALK_BOT}
@@ -51,12 +52,19 @@ services:
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
     ports:
-      - "5678:5678"
+      - "6001:5678"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./n8n_templates/workflows:/templates/workflows
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5678/healthz || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     deploy:
       resources:
         limits:
