@@ -129,12 +129,11 @@ scripts\export-templates.bat
 
 ## 主要工作流程一覽
 
-`n8n_templates/workflows/` 目前共 14 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
+`n8n_templates/workflows/` 目前共 13 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
 
 | 分類 | 工作流程 | 啟用 | 用途 |
 | --- | --- | --- | --- |
 | 總行動 | `總行動:PBI更新` | ✅ | 主排程入口，`Schedule Trigger`每日01:00啟動，統籌整個批次更新流程 |
-| 總行動 | `總行動:PBI更新 測試` | ❌ | 上面主流程的開發測試副本，內含幾個寫死名稱的Data Table測試節點，非正式流程 |
 | 獲取 | `獲取:Fabric Authrozation` | ✅ | 以 Client Credentials 流程向 Azure AD 取得 Power BI API Access Token |
 | 獲取 | `獲取:虛擬帳號可存取工作區的資料流程與語意模型` | ✅ | 讀取工作區快取表，逐一工作區掃描服務帳號可存取的資料流程與語意模型並登錄為待處理任務 |
 | 獲取 | `獲取:所有資料流程` / `獲取:所有語意模型` | ✅ | 列出指定工作區下的資料流程／語意模型 |
@@ -177,9 +176,7 @@ n8n 沒有官方 CLI/API 可以匯出匯入 Data Table 結構，所以 `start.ba
 ## 已知狀態與限制
 
 - `獲取:全Workspace`（維護「Power BI workspaces」快取表的workflow）目前沒有自己的排程、也沒被主流程呼叫，工作區異動（新增/移除/改名）不會自動反映到快取表，需要手動執行一次，或自行幫它加上 Schedule Trigger。
-- `n8n_backups_workflows/workflows.json` 為完整工作流程匯出檔，其中可能包含測試用的存取權杖（pinned execution data）；匯入或分享前請先確認並清除其中的敏感資訊。
-- `n8n_templates/workflows/` 每次用 `scripts/export-templates` 更新時會自動掃描機密與pinData，但無法保證涵蓋所有情況（例如新增了會把機密塞進其他非pinData欄位的node），commit前仍建議人工複查。
 
 ## 安全性提醒
 
-`.env` 內含 Azure AD 密鑰、資料庫密碼與 n8n 加密金鑰，切勿提交至版本控制，目前 `.gitignore` 已排除 `.env`。`n8n_backups_workflows/`（內含可能過期但仍應視為機密的存取權杖）目前仍會被提交，commit 前建議人工複查其中有無殘留 pinData／token；`n8n_templates/` 因為是特意整理過的凍結模板，每次用 `scripts/export-templates` 更新時腳本都會自動做一次機密與 pinData 掃描，相對風險較低，但仍建議養成commit前複查的習慣。
+`.env` 內含 Azure AD 密鑰、資料庫密碼與 n8n 加密金鑰，切勿提交至版本控制，目前 `.gitignore` 已排除 `.env`。
