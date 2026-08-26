@@ -36,8 +36,8 @@ Both parsing Code nodes implement strict validation **with auto-repair**: the mo
 
 ## Reproducible deployment: frozen templates
 
-- `n8n_templates/workflows/` holds 13 frozen workflow templates (exported with the official n8n CLI). `start.bat` / `start.sh` detect a fresh environment and **auto-import** them (skipped if workflows already exist — no overwrites)
-- Data Tables can't be exported/imported via official CLI, so the repo ships CSV templates (`n8n_templates/data_tables/`) for one-time manual import; the start scripts detect their absence and prompt
+- `n8n_templates/workflows/` holds 15 frozen workflow templates (exported with the official n8n CLI). `start.bat` / `start.sh` detect a fresh environment and **auto-import** them (skipped if workflows already exist — no overwrites)
+- Data Tables can't be exported/imported via official CLI, so table creation is itself a workflow: `初始化環境` (imported along with everything else) creates both tables if missing and clears them if not, using the Data Table node's native `create` operation (`createIfNotExists`); the start scripts detect missing tables and prompt you to run it once from the n8n UI
 - `scripts/export-templates` re-freezes edited workflows and **automatically scans for leaked secrets** (`CLIENT_SECRET`, `TENANT_ID`, `CLIENT_ID`, `DINGTALK_BOT`) **and non-empty pinData** (a past incident left real access tokens in pinned execution data) — warnings are printed for manual review before commit
 
 ## Data Tables

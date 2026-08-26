@@ -2,6 +2,7 @@
 # macOS / Ubuntu 一鍵啟動腳本：拉起 n8n + postgres，若偵測到是全新環境（沒有任何 workflow、
 # 沒有Data Table），會自動把 n8n_templates/ 底下凍結好的模板匯入進去。
 set -euo pipefail
+export MSYS_NO_PATHCONV=1
 cd "$(dirname "$0")"
 
 if [ ! -f .env ]; then
@@ -13,7 +14,7 @@ else
 fi
 
 set -a
-source .env
+source ./.env
 set +a
 
 N8N_CONTAINER="n8n-manage-pbi-refreshment_n8n"
@@ -52,12 +53,10 @@ DT_COUNT=$(docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRE
 
 if [ "$DT_COUNT" = "0" ]; then
   echo ""
-  echo "[提示] 尚未偵測到Data Table（Today BI update status / Power BI workspaces），這部分需要手動建立一次："
+  echo "[提示] 尚未偵測到Data Table（Today BI update status / Power BI workspaces），這部分需要手動執行一次："
   echo "  1. 開啟瀏覽器進入 http://localhost:6001"
-  echo "  2. 到左側 Data Tables 分頁，用「Import CSV」分別匯入以下兩個範本檔（匯入後記得刪掉範例列）："
-  echo "     - n8n_templates/data_tables/today_bi_update_status.csv"
-  echo "     - n8n_templates/data_tables/power_bi_workspaces.csv"
-  echo "     （或直接在UI手動新增欄位，欄位清單見README『狀態資料表』章節）"
+  echo "  2. 找到並執行『初始化環境』這個workflow（Manual Trigger，按 Execute workflow 即可）"
+  echo "     它會自動建立這兩個Data Table（已存在則清空重建），不用手動輸入欄位"
   echo ""
 else
   echo "偵測到Data Table已存在，略過建立。"

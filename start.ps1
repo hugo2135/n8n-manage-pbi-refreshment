@@ -49,12 +49,10 @@ if ($wfCount -eq "0") {
 $dtCount = (docker compose exec -T postgres psql -U $PG_USER -d $PG_DB -tAc "SELECT count(*) FROM data_table;" | Out-String).Trim()
 if ($dtCount -eq "0") {
     Write-Host ""
-    Write-Host "[提示] 尚未偵測到Data Table（Today BI update status / Power BI workspaces），這部分需要手動建立一次："
+    Write-Host "[提示] 尚未偵測到Data Table（Today BI update status / Power BI workspaces），這部分需要手動執行一次："
     Write-Host "  1. 開啟瀏覽器進入 http://localhost:6001"
-    Write-Host "  2. 到左側 Data Tables 分頁，用「Import CSV」分別匯入以下兩個範本檔（匯入後記得刪掉範例列）："
-    Write-Host "     - n8n_templates\data_tables\today_bi_update_status.csv"
-    Write-Host "     - n8n_templates\data_tables\power_bi_workspaces.csv"
-    Write-Host "     （或直接在UI手動新增欄位，欄位清單見README『狀態資料表』章節）"
+    Write-Host "  2. 找到並執行『初始化環境』這個workflow（Manual Trigger，按 Execute workflow 即可）"
+    Write-Host "     它會自動建立這兩個Data Table（已存在則清空重建），不用手動輸入欄位"
     Write-Host ""
 } else {
     Write-Host "偵測到Data Table已存在，略過建立。"

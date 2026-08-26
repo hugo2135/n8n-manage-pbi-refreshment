@@ -3,10 +3,11 @@
 # 不是給全新環境用的，是給你在n8n介面編輯完、要更新版本控制裡的模板時執行。
 # Data Table的結構n8n沒有官方CLI/API可以匯出匯入，需另外在n8n介面手動建立（見README）。
 set -euo pipefail
+export MSYS_NO_PATHCONV=1
 cd "$(dirname "$0")/.."
 
 set -a
-source .env
+source ./.env
 set +a
 
 N8N_CONTAINER="n8n-manage-pbi-refreshment_n8n"
