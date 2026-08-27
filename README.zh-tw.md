@@ -20,8 +20,9 @@ n8n 容器內建了呼叫 Power BI REST API 所需的 Azure AD 應用程式（Se
 3. **進入主迴圈**（`迴圈起點` 為 Wait 節點）：
    - **取得存取權杖**：呼叫 `獲取:Fabric Authrozation`，以 Azure AD Client Credentials 流程向 `login.microsoftonline.com` 換取 Power BI API 的 Bearer Token（`TENANT_ID`/`CLIENT_ID`/`CLIENT_SECRET` 皆透過 `$env.*` 表達式讀取 `.env`，不會寫進 workflow 本身）。
    - **輪詢進行中的任務**：若目前有 `InProgress` 任務，依類型呼叫 `獲取:資料流程狀態` / `獲取:語意模型狀態` 查詢 Power BI 更新歷史，比對更新開始時間判斷是否為本次觸發，並將結果（`Success` / 失敗狀態）寫回狀態表。
-   - **依相依關係啟動新任務**：讀取所有 `NotStarted` 任務，`整理所有前置` 這個 Code 節點會比對每筆任務的 `PRE_WORKFLOW_LIST` 是否全數 `Success`（或沒有前置任務），只有符合的任務才會依類型呼叫 `行動:BI 資料流程啟動更新` 或 `行動:BI 語意模型啟動更新`（實際呼叫 Power BI REST API 觸發 `refreshes` / `transactions`），觸發成功後狀態更新為 `InProgress`。
-   - **判斷是否結束**：若狀態表中仍有 `NotStarted` 或 `InProgress` 的任務，呼叫 `行動:整理非完成排程` 產生目前卡住/進行中任務的樹狀文字報告，透過 `行動:發送釘釘訊息` 送出進度通知，再回到 `迴圈起點` 繼續下一輪；若已經沒有未完成任務，則送出完成通知後結束流程。
+   - **依相依關係啟動新任務**：讀取所有 `NotStarted` 任務，`整理所有前置` 這個 Code 節點會比對每筆任務的 `PRE_WORKFLOW_LIST` 是否全數 `Success`（或沒有前置任務），只有符合的任務才會依類型呼叫 `行動:BI 資料流程啟動更新` 或 `行動:BI 語意模型啟動更新`（實際呼叫 Power BI REST API 觸發 `refreshes` / `transactions`），觸發成功後狀態更新為 `InProgress`。這兩個觸發workflow內建**重複觸發防護**：Power BI對「已經在刷新中」的資料集會回400錯誤（資料流程是`CdsaModelIsAlreadyRefreshing`，語意模型是`RefreshInProgressException`），Switch節點偵測到這個錯誤字樣就視為正常、直接結束，不會誤判成失敗。
+   - **失敗重試**：另一條平行分支會篩選出`STATUS=Failed`且`RETRY_COUNT`未達上限的任務，交給 `行動:處理更新失敗` 處理——先把STATUS掛成`Waiting`、等待設定的重試間隔，時間到再掛回`NotStarted`並將`RETRY_COUNT`加一，讓它在下一輪迴圈被`整理所有前置`重新撿去派工，不需要自己重新呼叫觸發API。超過重試上限的任務會停在`Failed`，不再被這條分支撿到。
+   - **判斷是否結束**：若狀態表中仍有 `NotStarted`、`InProgress` 或 `Waiting` 的任務，呼叫 `行動:整理非完成排程` 產生目前卡住/進行中任務的樹狀文字報告，透過 `行動:發送釘釘訊息` 送出進度通知，再回到 `迴圈起點` 繼續下一輪；若已經沒有未完成任務，則送出完成通知後結束流程。
 
 ### 相依關係機制
 
@@ -37,7 +38,7 @@ n8n 容器內建了呼叫 Power BI REST API 所需的 Azure AD 應用程式（Se
 
 ### 進度通知的文字地圖
 
-`行動:整理非完成排程` 會把「Today BI update status」裡尚未完成（`NotStarted`／`InProgress`／`Failed`）的任務，依 `PRE_WORKFLOW_LIST` 的相依關係畫成樹狀縮排文字（根節點是沒有被任何任務依賴的任務，通常是語意模型；已完成的 `Success` 分支不顯示也不往下展開；同一個前置任務被多個任務共用時，只在第一次出現完整展開，之後只標註「共用依賴，詳見上方」避免報告爆版），再交給 `行動:發送釘釘訊息` 透過 DingTalk 機器人 Webhook 送出。
+`行動:整理非完成排程` 會把「Today BI update status」裡尚未完成（`NotStarted`／`InProgress`／`Waiting`／`Failed`）的任務，依 `PRE_WORKFLOW_LIST` 的相依關係畫成樹狀縮排文字（根節點是沒有被任何任務依賴的任務，通常是語意模型；已完成的 `Success` 分支不顯示也不往下展開；同一個前置任務被多個任務共用時，只在第一次出現完整展開，之後只標註「共用依賴，詳見上方」避免報告爆版），再交給 `行動:發送釘釘訊息` 透過 DingTalk 機器人 Webhook 送出。
 
 ## 目錄結構
 
@@ -51,10 +52,7 @@ n8n 容器內建了呼叫 Power BI REST API 所需的 Azure AD 應用程式（Se
 │   ├── export-templates.sh    # 把目前n8n裡編輯好的內容重新凍結進 n8n_templates/（開發機用）
 │   └── export-templates.bat   # 同上，Windows版（需要Git Bash或WSL提供bash）
 ├── n8n_templates/              # 全新環境自動匯入用的凍結模板，會被 start.sh / start.bat 自動套用
-│   ├── workflows/              # n8n export:workflow --separate 產出，每個workflow一個json（用workflow id命名）
-│   └── data_tables/            # Data Table的CSV範本，供n8n介面「Import CSV」手動匯入用（見〈狀態資料表〉章節）
-│       ├── today_bi_update_status.csv
-│       └── power_bi_workspaces.csv
+│   └── workflows/              # n8n export:workflow --separate 產出，每個workflow一個json（用workflow id命名）
 ├── n8n_backups_workflows/
 │   └── workflows.json         # 全站 n8n 工作流程備份（完整匯出，含開發草稿，用途是原始備份而非啟動模板）
 └── docs/
@@ -62,7 +60,8 @@ n8n 容器內建了呼叫 Power BI REST API 所需的 Azure AD 應用程式（Se
         ├── 總行動/PBI更新.json
         ├── 獲取/Fabric Authrozation.json
         ├── 行動/整理非完成排程.json
-        └── ...（其餘workflow同理，共14個）
+        ├── 其他/初始化環境(注意會覆蓋同名表格).json   # 名稱沒用「分類:名稱」格式的會落在這個資料夾
+        └── ...（其餘workflow同理，共15個）
 ```
 
 > `docs/nodes/` 內容跟 `n8n_templates/workflows/` **完全一樣**，只是用workflow名稱當檔名/資料夾比較好瀏覽，是由 `scripts/regenerate-docs.js` 從 `n8n_templates/workflows/` 自動產生（`scripts/export-templates` 執行時會自動呼叫），**不要手動編輯這裡的檔案**，改動會在下次匯出時被覆蓋掉。
@@ -101,7 +100,7 @@ macOS / Ubuntu：
 
 兩份腳本邏輯一致：在 `.env` 不存在時自動從 `.env.example` 複製一份、以 `docker compose up -d --build` 啟動容器、等待 n8n 完成啟動後，**自動偵測是否為全新環境**——如果偵測到沒有任何 workflow，會自動把 `n8n_templates/workflows/` 底下凍結好的模板匯入進去（匯入後預設為停用狀態，需自行到 n8n 介面手動啟用）；如果偵測到環境已有 workflow，則略過匯入，不會重複套用或覆蓋既有內容。
 
-**Data Table 不會自動建立**（n8n 沒有官方 CLI/API 支援匯出匯入 Data Table 結構），全新環境第一次啟動時，腳本偵測到沒有 Data Table 會印出提示，需要手動建立一次，最快的方式是用 `n8n_templates/data_tables/` 底下的 CSV 範本匯入（見下方〈狀態資料表〉章節），之後就不用再重建。
+**Data Table 不會自動建立**（n8n 沒有官方 CLI/API 支援匯出匯入 Data Table 結構），全新環境第一次啟動時，腳本偵測到沒有 Data Table 會印出提示，需要手動執行一次 `初始化環境` 這個workflow（Manual Trigger，在n8n介面按「Execute workflow」即可，見下方〈狀態資料表〉章節），之後就不用再重建。
 
 啟動後於瀏覽器開啟 `http://localhost:6001` 進入 n8n 編輯介面。
 
@@ -113,7 +112,7 @@ docker compose down
 
 ## n8n_templates/ 與自動匯入
 
-`n8n_templates/` 是給 `start.bat` / `start.sh` 在全新環境自動套用的凍結模板，跟 `n8n_backups_workflows/`（原始全量備份，含開發草稿）用途不同。目前只有 workflow（`n8n_templates/workflows/`）會這樣自動化：用 n8n 官方 CLI `export:workflow` / `import:workflow` 匯出匯入，完全自動化、官方支援。Data Table 的結構因為 n8n 沒有官方 CLI/API 支援匯出匯入，沒有做自動化，改成手動建立一次（見〈狀態資料表〉章節）。
+`n8n_templates/` 是給 `start.bat` / `start.sh` 在全新環境自動套用的凍結模板，跟 `n8n_backups_workflows/`（原始全量備份，含開發草稿）用途不同。Workflow（`n8n_templates/workflows/`）用 n8n 官方 CLI `export:workflow` / `import:workflow` 匯出匯入，完全自動化、官方支援。Data Table 的結構因為 n8n 沒有官方 CLI/API 支援匯出匯入，改成靠 `初始化環境` 這個workflow用 Data Table 節點原生的 `create` 操作（`createIfNotExists`）自己建表、有資料則清空重建，這個workflow本身也隨其他15個一起被凍結進 `n8n_templates/workflows/`，只是需要在全新環境手動執行一次（見〈狀態資料表〉章節）。
 
 在 n8n 介面編輯完 workflow 後，若要把最新內容重新凍結進 `n8n_templates/`：
 
@@ -129,7 +128,7 @@ scripts\export-templates.bat
 
 ## 主要工作流程一覽
 
-`n8n_templates/workflows/` 目前共 13 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
+`n8n_templates/workflows/` 目前共 15 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
 
 | 分類 | 工作流程 | 啟用 | 用途 |
 | --- | --- | --- | --- |
@@ -140,15 +139,25 @@ scripts\export-templates.bat
 | 獲取 | `獲取:資料流程狀態` / `獲取:語意模型狀態` | ✅ | 查詢更新歷史，判斷本次觸發是否已完成，並回寫狀態表 |
 | 獲取 | `獲取:全Workspace` | ✅ | **維護性workflow**：掃描服務帳號可存取的全部工作區，更新/新增/刪除「Power BI workspaces」快取表裡的紀錄。目前沒有排程也沒被主流程呼叫，需要手動執行或自行加上排程來保持快取更新（見〈已知狀態與限制〉） |
 | 行動 | `行動:查詢已知工作區` | ✅ | 讀取「Power BI workspaces」快取表，供掃描流程取得要遍歷的工作區清單 |
-| 行動 | `行動:BI 資料流程啟動更新` / `行動:BI 語意模型啟動更新` | ✅ | 呼叫 Power BI REST API 實際觸發更新（`refreshes` / `transactions`） |
+| 行動 | `行動:BI 資料流程啟動更新` / `行動:BI 語意模型啟動更新` | ✅ | 呼叫 Power BI REST API 實際觸發更新（`refreshes` / `transactions`），內建重複觸發防護（見下方說明） |
+| 行動 | `行動:處理更新失敗` | ✅ | 對失敗且未達重試上限的任務，掛`Waiting`等待重試間隔，時間到再掛回`NotStarted`並累加`RETRY_COUNT`，交由主迴圈既有派工機制重新觸發 |
 | 行動 | `行動:整理非完成排程` | ✅ | 把尚未完成的任務依前置關係整理成樹狀文字報告，供DingTalk通知使用 |
 | 行動 | `行動:發送釘釘訊息` | ✅ | 透過 DingTalk 機器人 Webhook 發送文字通知 |
+| 其他 | `初始化環境(注意會覆蓋同名表格)` | ❌ | Manual Trigger，一次性建立/清空兩個Data Table，全新環境需手動執行一次（見〈狀態資料表〉章節） |
 
-## 狀態資料表（Data Table，需手動建立一次）
+### 重複觸發防護與失敗重試
 
-n8n 沒有官方 CLI/API 可以匯出匯入 Data Table 結構，所以 `start.bat` / `start.sh` 不會自動建立它們；全新環境第一次啟動時，腳本偵測到缺少會印出提示，需要手動建立一次，之後就不用再重建。
+`行動:BI 資料流程啟動更新` / `行動:BI 語意模型啟動更新` 呼叫Power BI API時，若目標資料集已經在刷新中，API會回400錯誤（資料流程是`error.message`包含`CdsaModelIsAlreadyRefreshing`，語意模型是包含`RefreshInProgressException`）。這兩個workflow的httpRequest節點設定成錯誤時也把回應內容往下傳（而不是直接中斷workflow），後面接一個Switch節點比對這個錯誤字樣，符合就視為正常、直接結束，不會誤判成觸發失敗。
 
-**最快的方式**：到 n8n 介面左側「Data Tables」分頁，用「Import CSV」功能分別匯入 `n8n_templates/data_tables/today_bi_update_status.csv` 與 `n8n_templates/data_tables/power_bi_workspaces.csv`，n8n 會依照 CSV 的欄位自動建表。這兩份 CSV 各帶一筆範例列（讓 `RETRY_COUNT` 能被正確判斷成 number 型別），**匯入後記得刪掉這筆範例列**。也可以不用 CSV，直接在 UI 裡手動新增欄位，欄位與型別如下：
+> 目前這個Switch只處理了「已在進行中」這一種情況；真正的其他錯誤（例如權限被拿掉）預留了一個`啟動失敗`節點（會把STATUS寫成`Failed`），但**目前還沒接線**，屬於刻意保留的擴充點，還不會被自動偵測（見〈已知狀態與限制〉）。
+
+失敗後的重試由 `行動:處理更新失敗` 負責：`總行動:PBI更新` 會篩選出`STATUS=Failed`且`RETRY_COUNT`小於重試上限的任務交給它處理，掛`Waiting`等待一段設定的間隔後，改回`NotStarted`並將`RETRY_COUNT`加一，之後就交還給主迴圈既有的`整理所有前置`派工機制，不需要重新呼叫觸發API。超過重試上限的任務會維持在`Failed`，不會再被這條分支撿到，並持續出現在`行動:整理非完成排程`的進度報告裡。
+
+## 狀態資料表（Data Table，需手動執行一次`初始化環境`）
+
+n8n 沒有官方 CLI/API 可以匯出匯入 Data Table 結構，所以 `start.bat` / `start.sh` 不會自動建立它們；全新環境第一次啟動時，腳本偵測到缺少會印出提示，需要到 n8n 介面手動執行一次 `初始化環境` 這個workflow（左側找到它，按「Execute workflow」），之後就不用再重建。
+
+它內部用 Data Table 節點原生的 `create` 操作（帶`createIfNotExists`選項）分別建立以下兩個表，已存在則會清空重建，欄位與型別如下：
 
 ### Today BI update status
 
@@ -176,6 +185,7 @@ n8n 沒有官方 CLI/API 可以匯出匯入 Data Table 結構，所以 `start.ba
 ## 已知狀態與限制
 
 - `獲取:全Workspace`（維護「Power BI workspaces」快取表的workflow）目前沒有自己的排程、也沒被主流程呼叫，工作區異動（新增/移除/改名）不會自動反映到快取表，需要手動執行一次，或自行幫它加上 Schedule Trigger。
+- `行動:BI 資料流程啟動更新` / `行動:BI 語意模型啟動更新` 目前只偵測「已在進行中」這一種觸發錯誤；真正的其他錯誤（例如權限被拿掉、額度用完）預留了`啟動失敗`節點但還沒接線，不會被自動標記`Failed`、也就不會進入`行動:處理更新失敗`的重試流程，這類任務目前會卡住不動，需要人工到n8n執行紀錄裡查。
 
 ## 安全性提醒
 

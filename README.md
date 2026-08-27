@@ -19,8 +19,9 @@ The master workflow (enabled, `Schedule Trigger` daily at 01:00):
 2. **Main loop** (anchored on a `Wait` node):
    - **Acquire token** — Azure AD Client Credentials flow → Power BI API Bearer token
    - **Poll in-progress tasks** — queries refresh history, matches start times to confirm this run's triggers, writes `Success` / failure states back
-   - **Dispatch by dependency** — a Code node checks each `NotStarted` task's `PRE_WORKFLOW_LIST`; only tasks whose prerequisites are all `Success` (or that have none) get triggered via the Power BI REST API (`refreshes` / `transactions`) and move to `InProgress`
-   - **Progress notification** — while unfinished tasks remain, a report workflow renders them as a dependency-tree text map (roots first, completed branches pruned, shared dependencies expanded once) and sends it through the DingTalk bot webhook, then the loop repeats; a completion notice is sent when nothing is left
+   - **Dispatch by dependency** — a Code node checks each `NotStarted` task's `PRE_WORKFLOW_LIST`; only tasks whose prerequisites are all `Success` (or that have none) get triggered via the Power BI REST API (`refreshes` / `transactions`) and move to `InProgress`. Both trigger workflows guard against duplicate triggers: Power BI returns a 400 when a refresh is already running (`CdsaModelIsAlreadyRefreshing` for dataflows, `RefreshInProgressException` for models), and a Switch node matching that error text treats it as a no-op instead of a failure
+   - **Retry on failure** — a parallel branch filters `Failed` tasks under their retry limit into `行動:處理更新失敗`, which parks `STATUS=Waiting` for a configurable latency, then flips back to `NotStarted` with `RETRY_COUNT+1` so the existing dispatch step above picks it back up; tasks that exhaust the limit stay `Failed`
+   - **Progress notification** — while unfinished tasks (`NotStarted`/`InProgress`/`Waiting`) remain, a report workflow renders them as a dependency-tree text map (roots first, completed branches pruned, shared dependencies expanded once) and sends it through the DingTalk bot webhook, then the loop repeats; a completion notice is sent when nothing is left
 
 ### Dependency mechanism with fault tolerance
 
@@ -60,6 +61,7 @@ The start script creates `.env` from the example if missing, brings up the conta
 ## Known status & limitations
 
 - The workspace-cache maintenance workflow has no schedule and isn't called by the master flow — run it manually (or add a trigger) after workspace changes
+- The trigger workflows only detect the "already refreshing" duplicate-trigger case. Genuine other trigger errors (permission revoked, quota exhausted) have a `啟動失敗` node ready to mark `STATUS=Failed`, but it isn't wired up yet — those tasks currently just stall instead of entering the retry/escalation path
 
 ## Security notes
 
