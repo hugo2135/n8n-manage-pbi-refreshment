@@ -2,6 +2,24 @@
 
 以 [n8n](https://n8n.io/) 打造的 Power BI（Microsoft Fabric）批次更新自動化平台。透過 n8n 工作流程排程觸發「資料流程（Dataflow）」與「語意模型（Semantic Model）」的更新，並依照設定的相依關係（前置任務）依序執行、輪詢更新狀態，直到全部完成。
 
+## 使用流程
+
+從零開始建置到能正常運作，大致依序如下：
+
+1. **設定環境變數**：複製 `.env.example` 為 `.env`，填入 Azure AD Service Principal 的 `TENANT_ID`/`CLIENT_ID`/`CLIENT_SECRET`、Postgres帳密、`N8N_ENCRYPTION_KEY`、時區、（選用）`DINGTALK_BOT`（詳見〈環境變數設定〉）。
+2. **啟動容器**：執行 `start.bat`（Windows）或 `./start.sh`（macOS/Ubuntu）。腳本會自動拉起n8n+postgres、偵測是否為全新環境，若沒有任何workflow會自動匯入`n8n_templates/workflows/`底下凍結的模板（詳見〈快速開始〉）。
+3. **初始化Data Table**：全新環境第一次啟動，`start.bat`/`start.sh`偵測到沒有Data Table會印出提示，需要到n8n介面手動執行一次`初始化環境`這個workflow（Manual Trigger，按「Execute workflow」），會自動建立「Today BI update status」與「Power BI workspaces」兩個表（詳見〈狀態資料表〉）。
+4. **登錄要追蹤的資料流程／語意模型**：`獲取:虛擬帳號可存取工作區的資料流程與語意模型`會自動掃描服務帳號可存取的所有工作區、資料流程、語意模型，但**無法自動判斷相依關係**（哪個語意模型依賴哪個資料流程），需要手動登錄有相依關係的項目。做法是參考`總行動:PBI更新_模版`這個獨立的參考workflow（用`Model1`、`Dataflow - ETL1`等通用命名的節點示範，不含真實工作區資訊，可安全查閱），依樣畫葫蘆：
+   1. 複製一個現有的登錄節點（例如`Model1`或`Dataflow - ETL1`）當起點
+   2. 把`WORKSPACE_ID`／`DATASET_ID`欄位的表達式，改成引用`Call '獲取:虛擬帳號可存取工作區的資料流程與語意模型'`輸出裡對應的工作區名稱與資料集名稱，例如：
+      ```
+      ={{ $('Call \'獲取:虛擬帳號可存取工作區的資料流程與語意模型\'').item.json.workspaces['<工作區名稱>']['語意模型'][0]['<資料集名稱>'] }}
+      ```
+      （資料流程對應的路徑是`['資料流程']`而非`['語意模型']`）
+   3. 把`DATASET_NAME`改成該資料集的名稱
+   4. 確認並新增`PRE_WORKFLOW_LIST`（前置工作流佇列）——每個前置依賴一個物件，`PRE_WORKSPACE_ID`/`PRE_DATAFLOW_ID`一樣用上面的表達式指到該前置資料流程的位置
+   5. 把這個n8n節點本身重新命名，避免跟其他登錄節點混淆
+
 ## 系統架構
 
 專案以 Docker Compose 啟動兩個服務：
@@ -128,7 +146,7 @@ scripts\export-templates.bat
 
 ## 主要工作流程一覽
 
-`n8n_templates/workflows/` 目前共 15 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
+`n8n_templates/workflows/` 目前共 16 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
 
 | 分類 | 工作流程 | 啟用 | 用途 |
 | --- | --- | --- | --- |
@@ -144,6 +162,7 @@ scripts\export-templates.bat
 | 行動 | `行動:整理非完成排程` | ✅ | 把尚未完成的任務依前置關係整理成樹狀文字報告，供DingTalk通知使用 |
 | 行動 | `行動:發送釘釘訊息` | ✅ | 透過 DingTalk 機器人 Webhook 發送文字通知 |
 | 其他 | `初始化環境(注意會覆蓋同名表格)` | ❌ | Manual Trigger，一次性建立/清空兩個Data Table，全新環境需手動執行一次（見〈狀態資料表〉章節） |
+| 其他 | `總行動:PBI更新_模版` | ❌ | `總行動:PBI更新`的獨立參考副本，內含`Model1`、`Dataflow - ETL1`等通用命名的登錄節點範例，不含真實工作區資訊，供學習如何手動登錄有相依關係的資料流程/語意模型（見〈使用流程〉），本身不會被執行 |
 
 ### 重複觸發防護與失敗重試
 
