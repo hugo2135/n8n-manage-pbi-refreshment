@@ -7,9 +7,9 @@
 從零開始建置到能正常運作，大致依序如下：
 
 1. **設定環境變數**：複製 `.env.example` 為 `.env`，填入 Azure AD Service Principal 的 `TENANT_ID`/`CLIENT_ID`/`CLIENT_SECRET`、Postgres帳密、`N8N_ENCRYPTION_KEY`、時區、（選用）`DINGTALK_BOT`（詳見〈環境變數設定〉）。
-2. **啟動容器**：執行 `start.bat`（Windows）或 `./start.sh`（macOS/Ubuntu）。腳本會自動拉起n8n+postgres、偵測是否為全新環境，若沒有任何workflow會自動匯入`n8n_templates/workflows/`底下凍結的模板（詳見〈快速開始〉）。
+2. **啟動容器**：執行 `start.bat`（Windows）或 `./start.sh`（macOS/Ubuntu）。腳本會自動拉起n8n+postgres、偵測是否為全新環境，若沒有任何workflow會自動匯入`n8n_templates/workflows/`底下凍結的模板（詳見〈快速開始〉）。**這裡不含`總行動:PBI更新`本身**（見下方主要工作流程一覽的說明），需要在下一步依`總行動:PBI更新_模版`手動建立。
 3. **初始化Data Table**：全新環境第一次啟動，`start.bat`/`start.sh`偵測到沒有Data Table會印出提示，需要到n8n介面手動執行一次`初始化環境`這個workflow（Manual Trigger，按「Execute workflow」），會自動建立「Today BI update status」與「Power BI workspaces」兩個表（詳見〈狀態資料表〉）。
-4. **登錄要追蹤的資料流程／語意模型**：`獲取:虛擬帳號可存取工作區的資料流程與語意模型`會自動掃描服務帳號可存取的所有工作區、資料流程、語意模型，但**無法自動判斷相依關係**（哪個語意模型依賴哪個資料流程），需要手動登錄有相依關係的項目。做法是參考`總行動:PBI更新_模版`這個獨立的參考workflow（用`Model1`、`Dataflow - ETL1`等通用命名的節點示範，不含真實工作區資訊，可安全查閱），依樣畫葫蘆：
+4. **建立主流程並登錄要追蹤的資料流程／語意模型**：複製`總行動:PBI更新_模版`另存為正式的`總行動:PBI更新`。`獲取:虛擬帳號可存取工作區的資料流程與語意模型`會自動掃描服務帳號可存取的所有工作區、資料流程、語意模型，但**無法自動判斷相依關係**（哪個語意模型依賴哪個資料流程），需要手動登錄有相依關係的項目。做法是參考`_模版`裡`Model1`、`Dataflow - ETL1`等通用命名的節點範例，依樣畫葫蘆：
    1. 複製一個現有的登錄節點（例如`Model1`或`Dataflow - ETL1`）當起點
    2. 把`WORKSPACE_ID`／`DATASET_ID`欄位的表達式，改成引用`Call '獲取:虛擬帳號可存取工作區的資料流程與語意模型'`輸出裡對應的工作區名稱與資料集名稱，例如：
       ```
@@ -146,11 +146,11 @@ scripts\export-templates.bat
 
 ## 主要工作流程一覽
 
-`n8n_templates/workflows/` 目前共 16 個 workflow，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制：
+`n8n_templates/workflows/` 目前共 15 個 workflow 有被追蹤進版本控制，均已在文字報告與DingTalk通知的表達式裡把機密改成透過`$env.*`讀取（見〈環境變數設定〉），可以安全凍結進版本控制。**`總行動:PBI更新`本身的凍結檔案刻意被`.gitignore`排除**——這個正式在跑的主流程，隨著時間會累積真實、可識別業務內容的資料集登錄（見〈使用流程〉第4步），不適合放進共用的repo；要看結構參考，改看不含真實資料的`總行動:PBI更新_模版`。也因此全新環境自動匯入的15個workflow裡不含`總行動:PBI更新`，需要照〈使用流程〉自行從`_模版`建立：
 
 | 分類 | 工作流程 | 啟用 | 用途 |
 | --- | --- | --- | --- |
-| 總行動 | `總行動:PBI更新` | ✅ | 主排程入口，`Schedule Trigger`每日01:00啟動，統籌整個批次更新流程 |
+| 總行動 | `總行動:PBI更新` | ✅ | 主排程入口，`Schedule Trigger`每日01:00啟動，統籌整個批次更新流程。**本身未被追蹤進版本控制**（見上方說明），此列僅供了解其角色 |
 | 獲取 | `獲取:Fabric Authrozation` | ✅ | 以 Client Credentials 流程向 Azure AD 取得 Power BI API Access Token |
 | 獲取 | `獲取:虛擬帳號可存取工作區的資料流程與語意模型` | ✅ | 讀取工作區快取表，逐一工作區掃描服務帳號可存取的資料流程與語意模型並登錄為待處理任務 |
 | 獲取 | `獲取:所有資料流程` / `獲取:所有語意模型` | ✅ | 列出指定工作區下的資料流程／語意模型 |

@@ -7,9 +7,15 @@ const path = require('path');
 const srcDir = path.join(__dirname, '..', 'n8n_templates', 'workflows');
 const destBase = path.join(__dirname, '..', 'docs', 'nodes');
 
+// 這幾個workflow id本身在.gitignore裡被排除追蹤（正式流程裡有寫死的真實業務資料，
+// 不適合進版本控制），鏡射到docs/nodes/也要跟著跳過，不然還是會在這裡外洩一份。
+const EXCLUDED_WORKFLOW_IDS = new Set(['wGjnmCqQaDsYIsAi']);
+
 fs.rmSync(destBase, { recursive: true, force: true });
 
-const files = fs.readdirSync(srcDir).filter((f) => f.endsWith('.json'));
+const files = fs
+  .readdirSync(srcDir)
+  .filter((f) => f.endsWith('.json') && !EXCLUDED_WORKFLOW_IDS.has(path.basename(f, '.json')));
 for (const f of files) {
   const data = JSON.parse(fs.readFileSync(path.join(srcDir, f), 'utf8'));
   const name = data.name;
